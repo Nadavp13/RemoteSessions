@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Code Block Page</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div class="center-flex">
+    <h1>Code Preview Page</h1>
+  </div>
+
+  <h3>You're viewing {{ file_name }} file's code</h3>
+  <p id="user-type"></p> <!-- Display user type here -->
+
+  <textarea id="editable-text">{{ code_preview }}</textarea>
+
+  <div class="flex-end">
+    <button type="button" id="save-button" class="button btn">Save Code</button>
+    <a href="/" class="button btn">Back to home page</a>
+  </div>
+
+
+  <script>
+    let editor = CodeMirror.fromTextArea(document.getElementById("editable-text"), {
+      mode: "javascript",
+      lineNumbers: true,
+      theme: "default",
+      indentUnit: 2,
+      smartIndent: true,
+      electricChars: true,
+      lineWrapping: true,
+      matchBrackets: true
+    });
+
+    let socket = io();
+    socket.on('connect', function () {
+      console.log('Connected to server');
+    });
+
+    socket.on('disconnect', function () {
+      console.log('Connected to server');
+    });
+
+    socket.on('user_type', function (userType) {
+      if (userType === 'mentor') {
+        document.getElementById('user-type').innerHTML = "You're a mentor";
+        editor.setOption("readOnly", true); // Set the editor as read-only for mentors
+      } else {
+        document.getElementById('user-type').innerHTML = "You're a student";
+        editor.setOption("readOnly", false); // Set the editor as editable for students
+      }
+    });
+
+    let codeId = "{{ code_id }}";
+    let updatingCode = false; // Flag to indicate if the code is being updated
+
+    editor.on("change", function () {
+      if (!updatingCode) { // Only emit code updates if not already updating
+        let codeContent = editor.getValue();
+        let data = { 'code_id': codeId, 'code_content': codeContent };
+        socket.emit('code_update', data);
+      }
+    });
+
+    document.getElementById('save-button').addEventListener('click', function () {
+      let codeContent = editor.getValue();
+      let data = { 'code_id': codeId, 'code_content': codeContent };
+      socket.emit('save_code', data);
+    });
+
+    socket.on('code_update', function (data) {
+      let updatedCodeId = Object.keys(data)[0];
+      let codeContent = data[updatedCodeId];
+      if (updatedCodeId === codeId) {
+        updatingCode = true; // Set the flag to true before updating the code
+        editor.setValue(codeContent);
+        updatingCode = false; // Reset the flag after the code update
+      }
+    });
+  </script>
+</body>
+
+</html>
